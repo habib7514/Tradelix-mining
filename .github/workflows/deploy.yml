@@ -1,4 +1,3 @@
-
 name: Deploy Tradelix Mining to GitHub Pages
 
 on:
@@ -30,7 +29,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
+      - name: Compile TLX Smart Contracts
+        run: npx hardhat compile
+
+      - name: Build Website
         run: npm run build -- --base=/Tradelix-mining/
 
       - name: Upload artifact
