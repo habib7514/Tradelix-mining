@@ -34,6 +34,13 @@ jobs:
       - name: Compile TLX Smart Contracts
         run: npx hardhat compile
 
+      - name: Prepare Deployment Artifacts
+        run: |
+          mkdir -p public/contracts
+          cp artifacts/contracts/TradelixMining.sol/TradelixMining.json public/contracts/
+          cp artifacts/contracts/TradelixToken.sol/TradelixToken.json public/contracts/
+          cp artifacts/contracts/TradelixSale.sol/TradelixSale.json public/contracts/
+
       - name: Run Smart Contract Tests
         run: npm test
 
