@@ -22,6 +22,7 @@ contract TradelixSale is ReentrancyGuard {
 
     mapping(address => bool) public hasPurchased;
     mapping(address => uint256) public firstPurchaseTokens;
+    mapping(address => uint256) public firstPurchaseTime;
 
     event TokensPurchased(
         address indexed buyer,
@@ -48,6 +49,8 @@ contract TradelixSale is ReentrancyGuard {
 
         uint256 tlxAmount = usdtAmount * 10;
 
+        bool first = !hasPurchased[msg.sender];
+
         IERC20(USDT_ADDRESS).safeTransferFrom(
             msg.sender,
             TREASURY_WALLET,
@@ -60,11 +63,10 @@ contract TradelixSale is ReentrancyGuard {
             tlxAmount
         );
 
-        bool first = !hasPurchased[msg.sender];
-
         if (first) {
             hasPurchased[msg.sender] = true;
             firstPurchaseTokens[msg.sender] = tlxAmount;
+            firstPurchaseTime[msg.sender] = block.timestamp;
         }
 
         emit TokensPurchased(
