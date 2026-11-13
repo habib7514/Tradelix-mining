@@ -1,1 +1,123 @@
-.
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #080d18;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  min-height: 100vh;
+}
+
+header {
+  padding: 24px 18px;
+  text-align: center;
+  border-bottom: 1px solid #26334b;
+}
+
+.logo {
+  color: #e9bd58;
+  font-size: 30px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.subtitle {
+  color: #8c9bb3;
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.container {
+  max-width: 520px;
+  margin: 28px auto;
+  padding: 18px;
+}
+
+.card {
+  background: #111b2d;
+  border: 1px solid #293954;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+h2 {
+  color: #e9bd58;
+  font-size: 19px;
+  margin-bottom: 18px;
+}
+
+.label {
+  color: #9baac0;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.value {
+  font-size: 29px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  overflow-wrap: anywhere;
+}
+
+.gold {
+  color: #e9bd58;
+}
+
+.info {
+  color: #a9b7ca;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin-top: 14px;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+.connect {
+  background: #e9bd58;
+  color: #111827;
+}
+
+.buy {
+  background: #243c5c;
+  color: white;
+  border: 1px solid #49658a;
+}
+
+.claim {
+  background: #263447;
+  color: #aab8ca;
+  cursor: not-allowed;
+}
+
+.status {
+  text-align: center;
+  color: #e9bd58;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+footer {
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  padding: 25px;
+}
