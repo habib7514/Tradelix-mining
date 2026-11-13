@@ -2,257 +2,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tradelix AI | TLX Mining</title>
-
-<style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  background: #080d18;
-  color: #ffffff;
-  font-family: Arial, sans-serif;
-  min-height: 100vh;
-}
-
-header {
-  padding: 24px 18px;
-  text-align: center;
-  border-bottom: 1px solid #26334b;
-}
-
-.logo {
-  color: #e9bd58;
-  font-size: 30px;
-  font-weight: bold;
-  letter-spacing: 2px;
-}
-
-.subtitle {
-  color: #8c9bb3;
-  margin-top: 8px;
-  font-size: 12px;
-  letter-spacing: 2px;
-}
-
-.container {
-  max-width: 520px;
-  margin: 28px auto;
-  padding: 18px;
-}
-
-.card {
-  background: #111b2d;
-  border: 1px solid #293954;
-  border-radius: 16px;
-  padding: 22px;
-  margin-bottom: 18px;
-}
-
-h2 {
-  color: #e9bd58;
-  font-size: 19px;
-  margin-bottom: 18px;
-}
-
-.label {
-  color: #9baac0;
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.value {
-  font-size: 29px;
-  font-weight: bold;
-  margin-bottom: 15px;
-}
-
-.gold {
-  color: #e9bd58;
-}
-
-.info {
-  color: #a9b7ca;
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-button {
-  width: 100%;
-  padding: 15px;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 12px;
-}
-
-.connect {
-  background: #e9bd58;
-  color: #111827;
-}
-
-.buy {
-  background: #243c5c;
-  color: white;
-  border: 1px solid #49658a;
-}
-
-.claim {
-  background: #263447;
-  color: #aab8ca;
-  cursor: not-allowed;
-}
-
-.status {
-  text-align: center;
-  color: #e9bd58;
-  font-size: 13px;
-  margin-top: 12px;
-}
-
-footer {
-  text-align: center;
-  color: #64748b;
-  font-size: 12px;
-  padding: 25px;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d18">
+  <title>Tradelix AI | TLX Mining</title>
 </head>
-
 <body>
+  <header>
+    <div class="logo">TRADELIX AI</div>
+    <div class="subtitle">TLX MINING PLATFORM</div>
+  </header>
 
-<header>
-  <div class="logo">TRADELIX AI</div>
-  <div class="subtitle">TLX MINING PLATFORM</div>
-</header>
+  <main class="container">
+    <section class="card">
+      <h2>My Mining Account</h2>
+      <div class="label">Wallet Address</div>
+      <div class="info" id="wallet">Not connected</div>
+      <button class="connect" id="connectButton">CONNECT WALLET</button>
+      <div class="status" id="status">Please connect your wallet</div>
+    </section>
 
-<main class="container">
+    <section class="card">
+      <h2>Mining Balance</h2>
+      <div class="label">TLX Balance</div>
+      <div class="value" id="balance">-- TLX</div>
+      <div class="label">Eligible Mining Amount</div>
+      <div class="value" id="eligible">-- TLX</div>
+      <div class="label">Daily Mining Rate</div>
+      <div class="value gold">0.25%</div>
+      <div class="label">Estimated Daily Reward</div>
+      <div class="value gold" id="reward">-- TLX</div>
+      <p class="info">Mining rewards are calculated from eligible purchased TLX tokens. Rewards are subject to the available mining reserve and smart contract rules.</p>
+    </section>
 
-  <section class="card">
-    <h2>My Mining Account</h2>
+    <section class="card">
+      <h2>Mining Claim</h2>
+      <div class="label">Claim Interval</div>
+      <div class="value">24 Hours</div>
+      <div class="label">Mining Status</div>
+      <div class="status">Contract connection pending</div>
+      <button class="claim" disabled>CLAIM MINING</button>
+      <p class="info note">Mining claims will be enabled after the smart contract is deployed and connected.</p>
+    </section>
 
-    <div class="label">Wallet Address</div>
-    <div class="info" id="wallet">Not connected</div>
+    <section class="card">
+      <h2>Buy Tradelix (TLX)</h2>
+      <div class="label">Initial Sale Price</div>
+      <div class="value gold">0.10 USDT</div>
+      <div class="label">Minimum Purchase</div>
+      <div class="value">5 USDT</div>
+      <button class="buy" id="buyButton">BUY TLX</button>
+      <p class="info note">Purchases will be processed through the official Tradelix smart contract.</p>
+    </section>
+  </main>
 
-    <button class="connect" onclick="connectWallet()">
-      CONNECT WALLET
-    </button>
-
-    <div class="status" id="status">
-      Please connect your wallet
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Mining Balance</h2>
-
-    <div class="label">TLX Balance</div>
-    <div class="value" id="balance">-- TLX</div>
-
-    <div class="label">Eligible Mining Amount</div>
-    <div class="value" id="eligible">-- TLX</div>
-
-    <div class="label">Daily Mining Rate</div>
-    <div class="value gold">0.25%</div>
-
-    <div class="label">Estimated Daily Reward</div>
-    <div class="value gold" id="reward">-- TLX</div>
-
-    <p class="info">
-      Mining rewards are calculated from eligible purchased
-      TLX tokens. Rewards are subject to the available
-      mining reserve and smart contract rules.
-    </p>
-  </section>
-
-  <section class="card">
-    <h2>Mining Claim</h2>
-
-    <div class="label">Claim Interval</div>
-    <div class="value">24 Hours</div>
-
-    <div class="label">Mining Status</div>
-    <div class="status">Contract connection pending</div>
-
-    <button class="claim" disabled>
-      CLAIM MINING
-    </button>
-
-    <p class="info" style="margin-top:14px">
-      Mining claims will be enabled after the smart
-      contract is deployed and connected.
-    </p>
-  </section>
-
-  <section class="card">
-    <h2>Buy Tradelix (TLX)</h2>
-
-    <div class="label">Initial Sale Price</div>
-    <div class="value gold">0.10 USDT</div>
-
-    <div class="label">Minimum Purchase</div>
-    <div class="value">5 USDT</div>
-
-    <button class="buy" onclick="buyToken()">
-      BUY TLX
-    </button>
-
-    <p class="info" style="margin-top:14px">
-      Purchases will be processed through the official
-      Tradelix smart contract.
-    </p>
-  </section>
-
-</main>
-
-<footer>
-  TRADELIX AI © 2026
-  <br><br>
-  BNB Smart Chain | TLX Token
-</footer>
-
-<script>
-async function connectWallet() {
-  const status = document.getElementById("status");
-
-  if (!window.ethereum) {
-    status.textContent =
-      "No compatible wallet detected. Open this site using a supported wallet browser.";
-    return;
-  }
-
-  try {
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts"
-    });
-
-    if (accounts.length > 0) {
-      document.getElementById("wallet").textContent =
-        accounts[0].slice(0, 8) + "..." +
-        accounts[0].slice(-6);
-
-      status.textContent =
-        "Wallet connected. Smart contract data is not connected yet.";
-    }
-  } catch (error) {
-    status.textContent = "Wallet connection cancelled or failed.";
-  }
-}
-
-function buyToken() {
-  alert(
-    "TLX purchase is not active yet. " +
-    "The official sale contract must be deployed first."
-  );
-}
-</script>
-
+  <footer>TRADELIX AI © 2026<br><br>BNB Smart Chain | TLX Token</footer>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
