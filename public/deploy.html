@@ -17,6 +17,7 @@ button:disabled{opacity:.35}
 </style>
 </head>
 <body>
+
 <div class="panel">
 <h2>TRADELIX AI</h2>
 <h3>Secure Contract Deployment</h3>
@@ -154,14 +155,24 @@ async function checkGas(estimateFunction) {
   const balance = await provider.getBalance(walletAddress);
 
   message(
-    "Estimated maximum fee for this step: " +
+    "Estimated maximum fee: " +
     formatEther(estimatedFee) + " BNB\n" +
+    "Your current balance: " +
+    formatEther(balance) + " BNB\n" +
     "Checking available balance..."
   );
 
   if (balance < estimatedFee) {
+    const shortfall = estimatedFee - balance;
+
     throw new Error(
-      "Insufficient BNB for this estimated transaction. No transaction sent."
+      "INSUFFICIENT BNB - NO TRANSACTION SENT\n" +
+      "Estimated required: " +
+      formatEther(estimatedFee) + " BNB\n" +
+      "Your current balance: " +
+      formatEther(balance) + " BNB\n" +
+      "Additional BNB needed: " +
+      formatEther(shortfall) + " BNB"
     );
   }
 
@@ -387,6 +398,7 @@ runStep("Approve TLX inventory", async () => {
 
 showAddresses();
 updateButtons();
+
 </script>
 </body>
 </html>
