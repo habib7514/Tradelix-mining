@@ -2,107 +2,391 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tradelix AI - Secure Deployment</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 25px;
-      background: #080d18;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-    .panel {
-      max-width: 500px;
-      margin: 40px auto;
-      padding: 25px;
-      background: #111c2e;
-      border: 1px solid #bd963c;
-      border-radius: 15px;
-    }
-    h2 { color: #e4bd58; }
-    button {
-      width: 100%;
-      padding: 15px;
-      margin-top: 20px;
-      background: #d4a83f;
-      color: #08101d;
-      border: 0;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    #status {
-      margin-top: 20px;
-      line-height: 1.7;
-      overflow-wrap: anywhere;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tradelix AI - Secure Deployment</title>
+<style>
+body{margin:0;padding:18px;background:#080d18;color:#fff;font-family:Arial,sans-serif}
+.panel{max-width:520px;margin:20px auto;padding:22px;background:#111c2e;border:1px solid #bd963c;border-radius:14px}
+h2{color:#e4bd58}
+button{width:100%;padding:14px;margin:8px 0;background:#d4a83f;color:#08101d;border:0;border-radius:8px;font-weight:bold;font-size:14px}
+button:disabled{opacity:.35}
+#status,#balance,#addresses{white-space:pre-line;overflow-wrap:anywhere;line-height:1.7;margin-top:15px}
+#status,#addresses{background:#081321;padding:12px;border-radius:8px}
+.note{font-size:12px;color:#aab6c8;line-height:1.6}
+</style>
 </head>
 <body>
-  <div class="panel">
-    <h2>TRADELIX AI</h2>
-    <h3>Secure Contract Deployment</h3>
-    <p>Connect your TokenPocket wallet securely.</p>
-    <button id="connect">CONNECT TOKENPOCKET</button>
-    <div id="status">Wallet not connected.</div>
-    <p style="color:#9aa8bd;font-size:13px">
-      Connection test only. No transaction will be sent.
-      Never enter your recovery phrase or private key.
-    </p>
-  </div>
+<div class="panel">
+<h2>TRADELIX AI</h2>
+<h3>Secure Contract Deployment</h3>
 
-  <script type="module">
-    import { BrowserProvider } from
-      "https://cdn.jsdelivr.net/npm/ethers@6.17.0/+esm";
+<button id="connect">CONNECT TOKENPOCKET</button>
+<div id="status">Wallet not connected.</div>
+<div id="balance">BNB balance: --</div>
 
-    const treasury =
-      "0x4E11E978119cAAB300b5439B909D06341C24a2A7";
+<h3>Deployment steps</h3>
 
-    const status = document.getElementById("status");
+<button id="mining" disabled>1. DEPLOY TRADELIX MINING</button>
+<button id="token" disabled>2. DEPLOY TRADELIX TOKEN</button>
+<button id="sale" disabled>3. DEPLOY TRADELIX SALE</button>
+<button id="setToken" disabled>4. CONNECT TOKEN TO MINING</button>
+<button id="setSale" disabled>5. CONNECT SALE TO MINING</button>
+<button id="approve" disabled>6. APPROVE 70 MILLION TLX</button>
 
-    document.getElementById("connect").onclick = async () => {
-      try {
-        if (!window.ethereum) {
-          throw new Error(
-            "Wallet not detected. Open this page inside TokenPocket."
-          );
-        }
+<div id="addresses">No contracts deployed yet.</div>
 
-        status.textContent = "Connecting...";
+<p class="note">
+Each step is a separate transaction. TokenPocket will ask for your approval.
+The page never requests your private key or recovery phrase.
+Do not close the page while a transaction is pending.
+</p>
+</div>
 
-        await window.ethereum.request({
-          method: "eth_requestAccounts"
-        });
+<script type="module">
+import {
+  BrowserProvider,
+  Contract,
+  ContractFactory,
+  parseUnits,
+  formatEther
+} from "https://cdn.jsdelivr.net/npm/ethers@6.17.0/+esm";
 
-        const provider = new BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const address = await signer.getAddress();
-        const network = await provider.getNetwork();
+const TREASURY = "0x4E11E978119cAAB300b5439B909D06341C24a2A7";
+const USDT = "0x55d398326f99059fF775485246999027B3197955";
+const INVENTORY = parseUnits("70000000",18);
 
-        if (network.chainId !== 56n) {
-          status.textContent =
-            "Please switch TokenPocket to BNB Smart Chain Mainnet.";
-          return;
-        }
+const statusEl = document.getElementById("status");
+const balanceEl = document.getElementById("balance");
+const addressesEl = document.getElementById("addresses");
 
-        if (address.toLowerCase() !== treasury.toLowerCase()) {
-          status.textContent =
-            "Connected, but this is not the approved Tradelix treasury wallet. No transaction was sent.";
-          return;
-        }
+let provider, signer, walletAddress;
+let artifacts = {};
+let state = {};
+let storageKey = "";
 
-        status.textContent =
-          "Wallet connected successfully.\n" +
-          "Network: BNB Smart Chain Mainnet\n" +
-          "Address: " + address +
-          "\nNo transaction was sent.";
+const ids = [
+  "mining","token","sale","setToken","setSale","approve"
+];
 
-      } catch (error) {
-        status.textContent = "Connection error: " + error.message;
-      }
-    };
-  </script>
+function message(text) {
+  statusEl.textContent = text;
+}
+
+function saveState() {
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  showAddresses();
+  updateButtons();
+}
+
+function showAddresses() {
+  addressesEl.textContent =
+    "Mining: " + (state.mining || "Not deployed") + "\n" +
+    "Token: " + (state.token || "Not deployed") + "\n" +
+    "Sale: " + (state.sale || "Not deployed") + "\n" +
+    "Token linked: " + (!!state.tokenLinked) + "\n" +
+    "Sale linked: " + (!!state.saleLinked) + "\n" +
+    "Inventory approved: " + (!!state.approved);
+}
+
+function updateButtons() {
+  document.getElementById("mining").disabled =
+    !signer || !!state.mining;
+
+  document.getElementById("token").disabled =
+    !signer || !state.mining || !!state.token;
+
+  document.getElementById("sale").disabled =
+    !signer || !state.token || !!state.sale;
+
+  document.getElementById("setToken").disabled =
+    !signer || !state.mining || !state.token || !!state.tokenLinked;
+
+  document.getElementById("setSale").disabled =
+    !signer || !state.mining || !state.sale ||
+    !state.tokenLinked || !!state.saleLinked;
+
+  document.getElementById("approve").disabled =
+    !signer || !state.sale || !!state.approved;
+}
+
+async function loadArtifacts() {
+  const names = [
+    "TradelixMining",
+    "TradelixToken",
+    "TradelixSale"
+  ];
+
+  for (const name of names) {
+    const response = await fetch("./contracts/" + name + ".json");
+
+    if (!response.ok) {
+      throw new Error(name + ".json could not be loaded.");
+    }
+
+    const artifact = await response.json();
+
+    if (!artifact.bytecode || artifact.bytecode === "0x") {
+      throw new Error("Missing bytecode: " + name);
+    }
+
+    artifacts[name] = artifact;
+  }
+}
+
+async function refreshBalance() {
+  const balance = await provider.getBalance(walletAddress);
+  balanceEl.textContent =
+    "BNB balance: " + formatEther(balance) + " BNB";
+}
+
+async function checkGas(estimateFunction) {
+  const gas = await estimateFunction();
+  const feeData = await provider.getFeeData();
+  const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas;
+
+  if (!gasPrice) {
+    throw new Error("Could not read current network gas price.");
+  }
+
+  const gasLimit = gas * 120n / 100n;
+  const estimatedFee = gasLimit * gasPrice;
+  const balance = await provider.getBalance(walletAddress);
+
+  message(
+    "Estimated maximum fee for this step: " +
+    formatEther(estimatedFee) + " BNB\n" +
+    "Checking available balance..."
+  );
+
+  if (balance < estimatedFee) {
+    throw new Error(
+      "Insufficient BNB for this estimated transaction. No transaction sent."
+    );
+  }
+
+  return gasLimit;
+}
+
+async function runStep(label, action) {
+  for (const id of ids) {
+    document.getElementById(id).disabled = true;
+  }
+
+  try {
+    message(label + "\nPreparing transaction...");
+
+    await action();
+
+    await refreshBalance();
+    message(label + "\nTransaction confirmed successfully.");
+    updateButtons();
+
+  } catch (error) {
+    message(
+      label + "\nStopped: " +
+      (error.shortMessage || error.message || "Unknown error")
+    );
+    updateButtons();
+  }
+}
+
+document.getElementById("connect").onclick = async () => {
+  try {
+    if (!window.ethereum) {
+      throw new Error("Open this page inside TokenPocket.");
+    }
+
+    await window.ethereum.request({
+      method: "eth_requestAccounts"
+    });
+
+    provider = new BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    walletAddress = await signer.getAddress();
+
+    const network = await provider.getNetwork();
+
+    if (network.chainId !== 56n) {
+      throw new Error("Please switch to BNB Smart Chain Mainnet.");
+    }
+
+    if (walletAddress.toLowerCase() !== TREASURY.toLowerCase()) {
+      throw new Error("Wrong wallet. Approved treasury wallet required.");
+    }
+
+    storageKey = "tradelix-deploy-v1-" + walletAddress.toLowerCase();
+
+    state = JSON.parse(localStorage.getItem(storageKey) || "{}");
+
+    await loadArtifacts();
+    await refreshBalance();
+
+    message(
+      "Wallet connected successfully.\n" +
+      "BNB Smart Chain Mainnet\n" +
+      walletAddress
+    );
+
+    showAddresses();
+    updateButtons();
+
+  } catch (error) {
+    signer = null;
+    message("Connection error: " + error.message);
+    updateButtons();
+  }
+};
+
+document.getElementById("mining").onclick = () =>
+runStep("Deploy TradelixMining", async () => {
+  const factory = new ContractFactory(
+    artifacts.TradelixMining.abi,
+    artifacts.TradelixMining.bytecode,
+    signer
+  );
+
+  const request = await factory.getDeployTransaction();
+
+  const gasLimit = await checkGas(() =>
+    provider.estimateGas({...request, from: walletAddress})
+  );
+
+  const contract = await factory.deploy({gasLimit});
+  await contract.waitForDeployment();
+
+  state.mining = await contract.getAddress();
+  saveState();
+});
+
+document.getElementById("token").onclick = () =>
+runStep("Deploy TradelixToken", async () => {
+  const factory = new ContractFactory(
+    artifacts.TradelixToken.abi,
+    artifacts.TradelixToken.bytecode,
+    signer
+  );
+
+  const request = await factory.getDeployTransaction(state.mining);
+
+  const gasLimit = await checkGas(() =>
+    provider.estimateGas({...request, from: walletAddress})
+  );
+
+  const contract = await factory.deploy(state.mining, {gasLimit});
+  await contract.waitForDeployment();
+
+  state.token = await contract.getAddress();
+  saveState();
+});
+
+document.getElementById("sale").onclick = () =>
+runStep("Deploy TradelixSale", async () => {
+  const factory = new ContractFactory(
+    artifacts.TradelixSale.abi,
+    artifacts.TradelixSale.bytecode,
+    signer
+  );
+
+  const request = await factory.getDeployTransaction(
+    state.token,
+    TREASURY,
+    USDT
+  );
+
+  const gasLimit = await checkGas(() =>
+    provider.estimateGas({...request, from: walletAddress})
+  );
+
+  const contract = await factory.deploy(
+    state.token,
+    TREASURY,
+    USDT,
+    {gasLimit}
+  );
+
+  await contract.waitForDeployment();
+
+  state.sale = await contract.getAddress();
+  saveState();
+});
+
+document.getElementById("setToken").onclick = () =>
+runStep("Connect token to mining", async () => {
+  const mining = new Contract(
+    state.mining,
+    artifacts.TradelixMining.abi,
+    signer
+  );
+
+  const gasLimit = await checkGas(() =>
+    mining.setToken.estimateGas(state.token)
+  );
+
+  const tx = await mining.setToken(state.token, {gasLimit});
+  await tx.wait();
+
+  state.tokenLinked = true;
+  saveState();
+});
+
+document.getElementById("setSale").onclick = () =>
+runStep("Connect sale to mining", async () => {
+  const mining = new Contract(
+    state.mining,
+    artifacts.TradelixMining.abi,
+    signer
+  );
+
+  const gasLimit = await checkGas(() =>
+    mining.setSale.estimateGas(state.sale)
+  );
+
+  const tx = await mining.setSale(state.sale, {gasLimit});
+  await tx.wait();
+
+  state.saleLinked = true;
+  saveState();
+});
+
+document.getElementById("approve").onclick = () =>
+runStep("Approve TLX inventory", async () => {
+  const token = new Contract(
+    state.token,
+    artifacts.TradelixToken.abi,
+    signer
+  );
+
+  const currentAllowance = await token.allowance(
+    walletAddress,
+    state.sale
+  );
+
+  if (currentAllowance >= INVENTORY) {
+    state.approved = true;
+    saveState();
+    message("The required inventory allowance already exists.");
+    return;
+  }
+
+  const gasLimit = await checkGas(() =>
+    token.approve.estimateGas(state.sale, INVENTORY)
+  );
+
+  const tx = await token.approve(
+    state.sale,
+    INVENTORY,
+    {gasLimit}
+  );
+
+  await tx.wait();
+
+  state.approved = true;
+  saveState();
+});
+
+showAddresses();
+updateButtons();
+</script>
 </body>
 </html>
