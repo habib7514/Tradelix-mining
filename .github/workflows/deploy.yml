@@ -1,4 +1,3 @@
-
 name: Deploy Tradelix Mining to GitHub Pages
 
 on:
@@ -74,6 +73,11 @@ jobs:
             'contracts/TradelixToken.sol',
             'verification/TradelixToken-standard-input.json'
           );
+
+          extract(
+            'contracts/TradelixMining.sol',
+            'verification/TradelixMining-standard-input.json'
+          );
           NODE
 
       - name: Upload BscScan Sale Verification File
@@ -88,6 +92,13 @@ jobs:
         with:
           name: bscscan-tradelix-token-standard-input
           path: verification/TradelixToken-standard-input.json
+          retention-days: 7
+
+      - name: Upload BscScan Mining Verification File
+        uses: actions/upload-artifact@v4
+        with:
+          name: bscscan-tradelix-mining-standard-input
+          path: verification/TradelixMining-standard-input.json
           retention-days: 7
 
       - name: Prepare Deployment Artifacts
