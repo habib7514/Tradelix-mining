@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -9,13 +10,11 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract TradelixSale is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    address public constant USDT_ADDRESS =
-        0x55d398326f99059fF775485246999027B3197955;
-
     address public constant TREASURY_WALLET =
         0x4E11E978119cAAB300b5439B909D06341C24a2A7;
 
     IERC20 public immutable tlxToken;
+    IERC20 public immutable paymentToken;
     address public immutable inventoryWallet;
 
     uint256 public constant MIN_PURCHASE = 5 ether;
@@ -31,17 +30,23 @@ contract TradelixSale is ReentrancyGuard {
         bool firstPurchase
     );
 
-    constructor(address tokenAddress, address inventoryAddress) {
+    constructor(
+        address tokenAddress,
+        address inventoryAddress,
+        address paymentTokenAddress
+    ) {
         require(tokenAddress != address(0), "Invalid TLX address");
         require(inventoryAddress != address(0), "Invalid inventory");
+        require(paymentTokenAddress != address(0), "Invalid payment token");
 
         require(
-            IERC20Metadata(USDT_ADDRESS).decimals() == 18,
-            "Unexpected USDT decimals"
+            IERC20Metadata(paymentTokenAddress).decimals() == 18,
+            "Payment token must use 18 decimals"
         );
 
         tlxToken = IERC20(tokenAddress);
         inventoryWallet = inventoryAddress;
+        paymentToken = IERC20(paymentTokenAddress);
     }
 
     function buy(uint256 usdtAmount) external nonReentrant {
@@ -51,7 +56,7 @@ contract TradelixSale is ReentrancyGuard {
 
         bool first = !hasPurchased[msg.sender];
 
-        IERC20(USDT_ADDRESS).safeTransferFrom(
+        paymentToken.safeTransferFrom(
             msg.sender,
             TREASURY_WALLET,
             usdtAmount
