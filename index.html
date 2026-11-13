@@ -1,29 +1,121 @@
 
-<section class="card">
-  <h2>Buy Tradelix (TLX)</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d18">
+  <title>Tradelix AI | TLX Mining</title>
+</head>
 
-  <div class="label">Initial Sale Price</div>
-  <div class="value gold">0.10 USDT</div>
+<body>
 
-  <div class="label">Minimum Purchase</div>
-  <div class="value">5 USDT</div>
+  <header>
+    <div class="logo">TRADELIX AI</div>
+    <div class="subtitle">TLX MINING PLATFORM</div>
+  </header>
 
-  <div class="label">Enter Purchase Amount (USDT)</div>
-  <input
-    type="number"
-    id="purchaseAmount"
-    min="5"
-    step="0.01"
-    placeholder="Enter amount (minimum 5 USDT)"
-  >
+  <main class="container">
 
-  <button class="buy" id="buyButton">BUY TLX</button>
+    <!-- Wallet Connection -->
+    <section class="card">
+      <h2>My Mining Account</h2>
 
-  <p class="info" id="purchaseInfo">
-    You will receive 10 TLX for every 1 USDT.
-  </p>
+      <div class="label">Wallet Address</div>
+      <div class="info" id="wallet">Not connected</div>
 
-  <p class="info note">
-    Purchases will be processed through the official Tradelix smart contract.
-  </p>
-</section>
+      <button class="connect" id="connectButton">
+        CONNECT WALLET
+      </button>
+
+      <div class="status" id="status">
+        Please connect your wallet
+      </div>
+    </section>
+
+    <!-- TLX Purchase -->
+    <section class="card">
+      <h2>Buy Tradelix (TLX)</h2>
+
+      <div class="label">Initial Sale Price</div>
+      <div class="value gold">0.10 USDT</div>
+
+      <div class="label">Minimum Purchase</div>
+      <div class="value">5 USDT</div>
+
+      <div class="label">Enter Purchase Amount (USDT)</div>
+
+      <input
+        type="number"
+        id="purchaseAmount"
+        min="5"
+        step="0.01"
+        placeholder="Enter amount (minimum 5 USDT)"
+      >
+
+      <button class="buy" id="buyButton">
+        BUY TLX
+      </button>
+
+      <p class="info" id="purchaseInfo">
+        You will receive 10 TLX for every 1 USDT.
+      </p>
+
+      <p class="info note">
+        Purchases will be processed through the official Tradelix smart contract.
+      </p>
+    </section>
+
+    <!-- Mining Balance -->
+    <section class="card">
+      <h2>Mining Balance</h2>
+
+      <div class="label">TLX Balance</div>
+      <div class="value" id="balance">-- TLX</div>
+
+      <div class="label">Eligible Mining Amount</div>
+      <div class="value" id="eligible">-- TLX</div>
+
+      <div class="label">Daily Mining Rate</div>
+      <div class="value gold">0.25%</div>
+
+      <div class="label">Estimated Daily Reward</div>
+      <div class="value gold" id="reward">-- TLX</div>
+
+      <p class="info">
+        Mining rewards are calculated from eligible purchased TLX tokens.
+        Rewards are subject to the available mining reserve and smart contract rules.
+      </p>
+    </section>
+
+    <!-- Mining Claim -->
+    <section class="card">
+      <h2>Mining Claim</h2>
+
+      <div class="label">Claim Interval</div>
+      <div class="value">24 Hours</div>
+
+      <div class="label">Mining Status</div>
+      <div class="status">Contract connection pending</div>
+
+      <button class="claim" disabled>
+        CLAIM MINING
+      </button>
+
+      <p class="info note">
+        Mining claims will be enabled after the smart contract is deployed and connected.
+      </p>
+    </section>
+
+  </main>
+
+  <footer>
+    TRADELIX AI © 2026
+    <br><br>
+    BNB Smart Chain | TLX Token
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+
+</body>
+</html>
