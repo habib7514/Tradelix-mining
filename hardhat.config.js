@@ -1,6 +1,6 @@
-require("@nomicfoundation/hardhat-toolbox");
+import "@nomicfoundation/hardhat-toolbox";
 
-module.exports = {
+export default {
   solidity: "0.8.20",
   networks: {
     bscTestnet: {
