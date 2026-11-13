@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 interface ITradelixSaleData {
     function firstPurchaseTokens(address user)
@@ -26,6 +27,11 @@ contract TradelixMining is Ownable, ReentrancyGuard {
     uint256 public constant DAILY_RATE = 25;
     uint256 public constant RATE_DENOMINATOR = 10000;
     uint256 public constant DAY = 1 days;
+
+    uint256 public constant MAX_REWARDS =
+        30_000_000 * 10**18;
+
+    uint256 public totalRewardsPaid;
 
     event MiningClaimed(
         address indexed user,
@@ -75,11 +81,18 @@ contract TradelixMining is Ownable, ReentrancyGuard {
 
         uint256 elapsed = block.timestamp - previousClaim;
 
-        uint256 reward =
-            (baseAmount * DAILY_RATE * elapsed)
-            / (RATE_DENOMINATOR * DAY);
+        uint256 reward = Math.mulDiv(
+            baseAmount,
+            DAILY_RATE * elapsed,
+            RATE_DENOMINATOR * DAY
+        );
 
         require(reward > 0, "Reward too small");
+
+        require(
+            totalRewardsPaid + reward <= MAX_REWARDS,
+            "Mining allocation exhausted"
+        );
 
         require(
             tlxToken.balanceOf(address(this)) >= reward,
@@ -87,6 +100,7 @@ contract TradelixMining is Ownable, ReentrancyGuard {
         );
 
         lastClaimTime[msg.sender] = block.timestamp;
+        totalRewardsPaid += reward;
 
         tlxToken.safeTransfer(msg.sender, reward);
 
@@ -99,5 +113,9 @@ contract TradelixMining is Ownable, ReentrancyGuard {
         }
 
         return tlxToken.balanceOf(address(this));
+    }
+
+    function remainingRewards() external view returns (uint256) {
+        return MAX_REWARDS - totalRewardsPaid;
     }
 }
