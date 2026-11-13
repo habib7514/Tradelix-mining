@@ -1,1 +1,20 @@
-.
+
+{
+  "name": "tradelix-mining",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@reown/appkit": "^1.8.24",
+    "@reown/appkit-adapter-wagmi": "^1.8.24",
+    "viem": "^2.38.5",
+    "wagmi": "^2.19.5"
+  },
+  "devDependencies": {
+    "vite": "^7.1.12"
+  }
+}
