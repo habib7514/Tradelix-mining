@@ -1,3 +1,4 @@
+
 import './style.css';
 
 import { createAppKit } from '@reown/appkit';
@@ -32,7 +33,7 @@ const PROJECT_ID = 'be63be7be2e8c243abb3a982be799a67';
 const metadata = {
   name: 'Tradelix AI',
   description: 'Tradelix AI TLX Mining Platform',
-  url: 'https://habib7514.github.io',
+  url: 'https://habib7514.github.io/Tradelix-mining/',
   icons: []
 };
 
@@ -98,9 +99,13 @@ const miningStatusElement =
 let walletProvider = null;
 let walletAddress = null;
 let busy = false;
+let refreshRunning = false;
 
+// Messages
 function setStatus(message) {
-  if (statusElement) statusElement.textContent = message;
+  if (statusElement) {
+    statusElement.textContent = message;
+  }
 }
 
 function setMiningStatus(message) {
@@ -111,6 +116,7 @@ function setMiningStatus(message) {
 
 function showError(error) {
   console.error(error);
+
   const message =
     error?.shortMessage ||
     error?.reason ||
@@ -132,30 +138,94 @@ function displayAmount(value) {
   );
 }
 
+// Reset displayed wallet information
+function resetWalletDisplay() {
+  walletAddress = null;
+
+  if (walletElement) {
+    walletElement.textContent = 'Not connected';
+  }
+
+  if (connectButton) {
+    connectButton.textContent = 'CONNECT WALLET';
+  }
+
+  if (balanceElement) balanceElement.textContent = '-- TLX';
+  if (eligibleElement) eligibleElement.textContent = '-- TLX';
+  if (rewardElement) rewardElement.textContent = '-- TLX';
+
+  if (claimButton) {
+    claimButton.disabled = true;
+  }
+
+  setStatus('Please connect your wallet');
+  setMiningStatus('Connect your wallet to view mining status.');
+}
+
+// Get the currently active MetaMask account
 async function getWallet() {
-  if (!walletProvider || !walletAddress) {
+  if (!walletProvider) {
     throw new Error('Please connect your wallet first.');
   }
 
-  const provider = new BrowserProvider(walletProvider);
-  const network = await provider.getNetwork();
+  const accounts = await walletProvider.request({
+    method: 'eth_accounts'
+  });
+
+  const activeAddress = accounts?.[0];
+
+  if (!activeAddress) {
+    throw new Error('No active wallet account found.');
+  }
+
+  // Synchronize the active account with AppKit
+  if (
+    !walletAddress ||
+    walletAddress.toLowerCase() !== activeAddress.toLowerCase()
+  ) {
+    walletAddress = activeAddress;
+
+    if (walletElement) {
+      walletElement.textContent = shorten(activeAddress);
+    }
+  }
+
+  // Create a fresh provider to avoid stale network information
+  let provider = new BrowserProvider(walletProvider, 'any');
+
+  let network = await provider.getNetwork();
 
   if (Number(network.chainId) !== CHAIN_ID) {
     await walletProvider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: CHAIN_HEX }]
     });
+
+    provider = new BrowserProvider(walletProvider, 'any');
+    network = await provider.getNetwork();
+  }
+
+  if (Number(network.chainId) !== CHAIN_ID) {
+    throw new Error('Please switch to BNB Smart Chain.');
   }
 
   const signer = await provider.getSigner();
+  const signerAddress = await signer.getAddress();
+
+  if (
+    signerAddress.toLowerCase() !== activeAddress.toLowerCase()
+  ) {
+    throw new Error('Wallet account changed. Please reconnect.');
+  }
 
   return {
     provider,
     signer,
-    address: walletAddress
+    address: signerAddress
   };
 }
 
+// Button loading state
 function setBusy(value) {
   busy = value;
 
@@ -173,7 +243,11 @@ function setBusy(value) {
 
 // Refresh wallet balances and mining information
 async function refreshDashboard() {
-  if (!walletProvider || !walletAddress) return;
+  if (!walletProvider || !walletAddress || refreshRunning) {
+    return;
+  }
+
+  refreshRunning = true;
 
   try {
     const { provider, address } = await getWallet();
@@ -210,6 +284,14 @@ async function refreshDashboard() {
       mining.miningReserveBalance()
     ]);
 
+    // Ignore results if the account changed during the read
+    if (
+      !walletAddress ||
+      walletAddress.toLowerCase() !== address.toLowerCase()
+    ) {
+      return;
+    }
+
     if (balanceElement) {
       balanceElement.textContent =
         displayAmount(tokenBalance) + ' TLX';
@@ -221,7 +303,7 @@ async function refreshDashboard() {
     }
 
     const dailyReward =
-      (Number(formatUnits(eligibleAmount, 18)) * 0.0025);
+      Number(formatUnits(eligibleAmount, 18)) * 0.0025;
 
     if (rewardElement) {
       rewardElement.textContent =
@@ -234,25 +316,28 @@ async function refreshDashboard() {
           ? Number(lastClaim)
           : Number(purchaseTime);
 
+      const now = Math.floor(Date.now() / 1000);
+
       const ready =
         previousTime > 0 &&
-        Math.floor(Date.now() / 1000) >= previousTime + 86400 &&
+        now >= previousTime + 86400 &&
         eligibleAmount > 0n &&
-        reserve > 0n;
+        reserve > 0n &&
+        !busy;
 
       claimButton.disabled = !ready || busy;
 
-      if (ready) {
-        setMiningStatus('Mining reward is ready to claim.');
-      } else if (eligibleAmount === 0n) {
+      if (eligibleAmount === 0n) {
         setMiningStatus('No eligible purchase found.');
+      } else if (reserve === 0n) {
+        setMiningStatus('Mining reserve is currently unavailable.');
+      } else if (ready) {
+        setMiningStatus('Mining reward is ready to claim.');
       } else {
-        const remaining =
-          Math.max(
-            0,
-            previousTime + 86400 -
-            Math.floor(Date.now() / 1000)
-          );
+        const remaining = Math.max(
+          0,
+          previousTime + 86400 - now
+        );
 
         const hours = Math.floor(remaining / 3600);
         const minutes = Math.floor((remaining % 3600) / 60);
@@ -262,8 +347,13 @@ async function refreshDashboard() {
         );
       }
     }
+
+    setStatus('Wallet connected successfully.');
+
   } catch (error) {
     showError(error);
+  } finally {
+    refreshRunning = false;
   }
 }
 
@@ -286,27 +376,10 @@ modal.subscribeAccount((account) => {
     }
 
     setStatus('Wallet connected successfully.');
-
     refreshDashboard();
+
   } else {
-    walletAddress = null;
-
-    if (walletElement) {
-      walletElement.textContent = 'Not connected';
-    }
-
-    if (connectButton) {
-      connectButton.textContent = 'CONNECT WALLET';
-    }
-
-    if (balanceElement) balanceElement.textContent = '-- TLX';
-    if (eligibleElement) eligibleElement.textContent = '-- TLX';
-    if (rewardElement) rewardElement.textContent = '-- TLX';
-
-    setStatus('Please connect your wallet');
-    setMiningStatus('Connect your wallet to view mining status.');
-
-    if (claimButton) claimButton.disabled = true;
+    resetWalletDisplay();
   }
 });
 
@@ -318,6 +391,43 @@ modal.subscribeProviders((providers) => {
     refreshDashboard();
   }
 });
+
+// Listen for direct MetaMask account changes
+function handleAccountsChanged(accounts) {
+  const nextAddress = accounts?.[0];
+
+  if (!nextAddress) {
+    resetWalletDisplay();
+    return;
+  }
+
+  walletAddress = nextAddress;
+
+  if (walletElement) {
+    walletElement.textContent = shorten(nextAddress);
+  }
+
+  if (connectButton) {
+    connectButton.textContent = 'WALLET CONNECTED';
+  }
+
+  refreshDashboard();
+}
+
+// Listen for network changes
+function handleChainChanged() {
+  refreshDashboard();
+}
+
+// Attach provider event listeners
+function attachProviderListeners(provider) {
+  if (!provider || typeof provider.on !== 'function') {
+    return;
+  }
+
+  provider.on('accountsChanged', handleAccountsChanged);
+  provider.on('chainChanged', handleChainChanged);
+}
 
 // Buy TLX
 buyButton?.addEventListener('click', async () => {
@@ -331,7 +441,11 @@ buyButton?.addEventListener('click', async () => {
 
     const amountText = amountInput?.value?.trim();
 
-    if (!amountText || !Number.isFinite(Number(amountText))) {
+    if (
+      !amountText ||
+      !Number.isFinite(Number(amountText)) ||
+      Number(amountText) <= 0
+    ) {
       throw new Error('Enter a valid USDT amount.');
     }
 
@@ -375,11 +489,14 @@ buyButton?.addEventListener('click', async () => {
     const transaction = await sale.buy(amount);
 
     setStatus('Purchase submitted. Waiting for confirmation...');
+
     await transaction.wait();
 
     setStatus('Purchase completed successfully.');
 
-    if (amountInput) amountInput.value = '';
+    if (amountInput) {
+      amountInput.value = '';
+    }
 
     await refreshDashboard();
 
@@ -438,3 +555,8 @@ setInterval(() => {
     refreshDashboard();
   }
 }, 30000);
+
+// Attach listeners if provider is already available
+if (walletProvider) {
+  attachProviderListeners(walletProvider);
+}
