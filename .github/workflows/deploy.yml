@@ -44,34 +44,50 @@ jobs:
           const dir = 'artifacts/build-info';
           const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
 
-          let found = null;
+          function extract(source, output) {
+            let found = null;
 
-          for (const file of files) {
-            const data = JSON.parse(
-              fs.readFileSync(path.join(dir, file), 'utf8')
-            );
+            for (const file of files) {
+              const data = JSON.parse(
+                fs.readFileSync(path.join(dir, file), 'utf8')
+              );
 
-            if (data.input?.sources?.['contracts/TradelixSale.sol']) {
-              found = data.input;
-              break;
+              if (data.input?.sources?.[source]) {
+                found = data.input;
+                break;
+              }
             }
+
+            if (!found) {
+              throw new Error(`${source} build info not found`);
+            }
+
+            fs.writeFileSync(output, JSON.stringify(found));
           }
 
-          if (!found) {
-            throw new Error('TradelixSale build info not found');
-          }
+          extract(
+            'contracts/TradelixSale.sol',
+            'verification/TradelixSale-standard-input.json'
+          );
 
-          fs.writeFileSync(
-            'verification/TradelixSale-standard-input.json',
-            JSON.stringify(found)
+          extract(
+            'contracts/TradelixToken.sol',
+            'verification/TradelixToken-standard-input.json'
           );
           NODE
 
-      - name: Upload BscScan Verification File
+      - name: Upload BscScan Sale Verification File
         uses: actions/upload-artifact@v4
         with:
           name: bscscan-tradelix-sale-standard-input
           path: verification/TradelixSale-standard-input.json
+          retention-days: 7
+
+      - name: Upload BscScan Token Verification File
+        uses: actions/upload-artifact@v4
+        with:
+          name: bscscan-tradelix-token-standard-input
+          path: verification/TradelixToken-standard-input.json
           retention-days: 7
 
       - name: Prepare Deployment Artifacts
