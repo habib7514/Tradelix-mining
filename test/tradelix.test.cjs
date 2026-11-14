@@ -6,7 +6,7 @@ describe("Tradelix AI - Smart Contract Tests", function () {
   let owner, buyer, mining, token, sale, mockUSDT;
 
   const parse = ethers.parseEther;
-  const TREASURY = "0x4E11E978119cAAB300b5439B909D06341C24a2A7;
+  const TREASURY = "0x4E11E978119cAAB300b5439B909D06341C24a2A7";
 
   beforeEach(async function () {
     [owner, buyer] = await ethers.getSigners();
@@ -16,9 +16,10 @@ describe("Tradelix AI - Smart Contract Tests", function () {
     await mockUSDT.waitForDeployment();
 
     const nonce = await owner.getNonce();
+
     const predictedMiningAddress = ethers.getCreateAddress({
       from: owner.address,
-      nonce: nonce + 3
+      nonce: nonce + 2
     });
 
     const Token = await ethers.getContractFactory("TradelixToken");
@@ -46,6 +47,7 @@ describe("Tradelix AI - Smart Contract Tests", function () {
     await token.approve(await sale.getAddress(), parse("70000000"));
 
     await mockUSDT.mint(buyer.address, parse("100"));
+
     await mockUSDT.connect(buyer).approve(
       await sale.getAddress(),
       parse("100")
@@ -72,6 +74,7 @@ describe("Tradelix AI - Smart Contract Tests", function () {
 
     expect(await sale.firstPurchaseTokens(buyer.address))
       .to.equal(parse("50"));
+
     expect(await sale.firstPurchaseTime(buyer.address))
       .to.be.greaterThan(0);
 
@@ -79,13 +82,16 @@ describe("Tradelix AI - Smart Contract Tests", function () {
 
     expect(await sale.firstPurchaseTokens(buyer.address))
       .to.equal(parse("50"));
+
     expect(await token.balanceOf(buyer.address))
       .to.equal(parse("150"));
   });
 
   it("should send purchase payments directly to the treasury", async function () {
     await sale.connect(buyer).buy(parse("5"));
-    expect(await mockUSDT.balanceOf(TREASURY)).to.equal(parse("5"));
+
+    expect(await mockUSDT.balanceOf(TREASURY))
+      .to.equal(parse("5"));
   });
 
   it("should not allow mining before 24 hours", async function () {
@@ -110,12 +116,14 @@ describe("Tradelix AI - Smart Contract Tests", function () {
 
     expect(await token.balanceOf(buyer.address))
       .to.equal(parse("150.5"));
+
     expect(await mining.totalRewardsPaid())
       .to.equal(parse("0.5"));
   });
 
   it("should expose the configured 1 percent daily rate", async function () {
     expect(await mining.DAILY_RATE()).to.equal(100n);
+
     expect(await mining.RATE_DENOMINATOR()).to.equal(10000n);
   });
 });
