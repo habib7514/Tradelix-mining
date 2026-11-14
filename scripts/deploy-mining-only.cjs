@@ -9,7 +9,8 @@ const SALE = "0x95969e4888A0afC7bb54c30F020a353407B35e0F";
 const ALLOCATION = ethers.parseUnits("30000000", 18);
 
 const TOKEN_ABI = [
-  "function balanceOf(address) view returns (uint256)"
+  "function balanceOf(address) view returns (uint256)",
+  "function transfer(address,uint256) returns (bool)"
 ];
 
 async function main() {
@@ -19,28 +20,19 @@ async function main() {
 
   const provider = new ethers.JsonRpcProvider(RPC);
   const network = await provider.getNetwork();
-
-  if (network.chainId !== 56n) {
-    throw new Error("Wrong network");
-  }
+  if (network.chainId !== 56n) throw new Error("Wrong network");
 
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-
   if (wallet.address.toLowerCase() !== TREASURY.toLowerCase()) {
     throw new Error("Wallet does not match treasury");
   }
 
-  const token = new ethers.Contract(TOKEN, TOKEN_ABI, provider);
+  const token = new ethers.Contract(TOKEN, TOKEN_ABI, wallet);
   const balance = await token.balanceOf(wallet.address);
+  if (balance < ALLOCATION) throw new Error("Insufficient TLX balance");
 
-  if (balance < ALLOCATION) {
-    throw new Error("Insufficient TLX balance");
-  }
-
-  const saleCode = await provider.getCode(SALE);
-  const tokenCode = await provider.getCode(TOKEN);
-
-  if (saleCode === "0x" || tokenCode === "0x") {
+  if ((await provider.getCode(TOKEN)) === "0x" ||
+      (await provider.getCode(SALE)) === "0x") {
     throw new Error("Token or Sale contract not found");
   }
 
@@ -50,57 +42,88 @@ async function main() {
     wallet
   );
 
-  const deployTx = await factory.getDeployTransaction(TOKEN, SALE);
+  const nonce = await wallet.getNonce();
+  const predictedAddress = ethers.getCreateAddress({
+    from: wallet.address,
+    nonce
+  });
 
+  const deployTx = await factory.getDeployTransaction(TOKEN, SALE);
   const deployGas = await provider.estimateGas({
     ...deployTx,
     from: wallet.address
   });
 
-  const fees = await provider.getFeeData();
-  if (!fees.gasPrice) {
-    throw new Error("Cannot read BNB gas price");
-  }
-
-  const transferInterface = new ethers.Interface([
-    "function transfer(address,uint256) returns (bool)"
-  ]);
-
-  const transferData = transferInterface.encodeFunctionData(
+  const transferData = new ethers.Interface(TOKEN_ABI).encodeFunctionData(
     "transfer",
-    [wallet.address, ALLOCATION]
+    [predictedAddress, ALLOCATION]
   );
 
   const transferGas = await provider.estimateGas({
     from: wallet.address,
     to: TOKEN,
     data: transferData
-  }).catch(() => 0n);
+  });
 
-  if (transferGas === 0n) {
-    throw new Error("Cannot estimate token transfer");
-  }
+  const fees = await provider.getFeeData();
+  if (!fees.gasPrice) throw new Error("Cannot read BNB gas price");
 
-  const totalGas = deployGas + transferGas;
-  const estimatedCost = totalGas * fees.gasPrice;
-  const withBuffer = estimatedCost * 120n / 100n;
+  const estimated = (deployGas + transferGas) * fees.gasPrice;
+  const required = estimated * 130n / 100n;
   const available = await provider.getBalance(wallet.address);
 
-  console.log("Wallet:", wallet.address);
+  console.log("Treasury:", wallet.address);
   console.log("TLX balance:", ethers.formatUnits(balance, 18));
-  console.log("Deployment gas:", deployGas.toString());
-  console.log("TLX transfer gas:", transferGas.toString());
-  console.log("Estimated BNB:", ethers.formatEther(estimatedCost));
-  console.log("With 20% buffer:", ethers.formatEther(withBuffer));
-  console.log("Available BNB:", ethers.formatEther(available));
+  console.log("Predicted mining address:", predictedAddress);
   console.log("Daily rate: 1%");
-  console.log("Mining allocation: 30,000,000 TLX");
+  console.log("Allocation: 30,000,000 TLX");
+  console.log("Estimated BNB with buffer:", ethers.formatEther(required));
 
-  if (available < withBuffer) {
+  if (available < required) {
     throw new Error("Insufficient BNB. No transactions sent.");
   }
 
-  console.log("ESTIMATE ONLY. No transactions sent.");
+  console.log("Deploying mining contract...");
+  const mining = await factory.deploy(TOKEN, SALE);
+  await mining.waitForDeployment();
+
+  const miningAddress = await mining.getAddress();
+  if (miningAddress.toLowerCase() !== predictedAddress.toLowerCase()) {
+    throw new Error("Address mismatch. Stop before funding.");
+  }
+
+  console.log("Mining deployed:", miningAddress);
+
+  console.log("Funding mining contract with 30,000,000 TLX...");
+  const transfer = await token.transfer(miningAddress, ALLOCATION);
+  const receipt = await transfer.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("TLX funding failed");
+  }
+
+  const check = new ethers.Contract(
+    miningAddress,
+    [
+      "function DAILY_RATE() view returns (uint256)",
+      "function RATE_DENOMINATOR() view returns (uint256)",
+      "function miningReserveBalance() view returns (uint256)"
+    ],
+    provider
+  );
+
+  const [rate, denominator, reserve] = await Promise.all([
+    check.DAILY_RATE(),
+    check.RATE_DENOMINATOR(),
+    check.miningReserveBalance()
+  ]);
+
+  console.log("DEPLOYMENT COMPLETE");
+  console.log("Mining address:", miningAddress);
+  console.log("Deployment TX:", mining.deploymentTransaction().hash);
+  console.log("Funding TX:", transfer.hash);
+  console.log("Rate:", rate.toString() + "/" + denominator.toString());
+  console.log("Reserve:", ethers.formatUnits(reserve, 18), "TLX");
 }
 
 main().catch(error => {
