@@ -1,4 +1,3 @@
-
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
@@ -95,9 +94,8 @@ describe("Tradelix AI - Smart Contract Tests", function () {
         ).to.be.revertedWith("Wait 24 hours");
     });
 
-    it("should pay 0.25 percent daily on the first purchase only", async function () {
+    it("should pay exactly 1 percent daily on the first purchase only", async function () {
         await sale.connect(buyer).buy(parse("5"));
-
         await sale.connect(buyer).buy(parse("10"));
 
         await ethers.provider.send("evm_increaseTime", [86400]);
@@ -106,9 +104,9 @@ describe("Tradelix AI - Smart Contract Tests", function () {
         await mining.connect(buyer).claim();
 
         expect(await token.balanceOf(buyer.address))
-            .to.be.greaterThan(parse("150"));
+            .to.equal(parse("150.5"));
 
         expect(await mining.totalRewardsPaid())
-            .to.be.greaterThan(0);
+            .to.equal(parse("0.5"));
     });
 });
