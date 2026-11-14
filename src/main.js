@@ -100,6 +100,7 @@ let walletProvider = null;
 let walletAddress = null;
 let busy = false;
 let refreshRunning = false;
+let listeningProvider = null;
 
 // Messages
 function setStatus(message) {
@@ -162,7 +163,7 @@ function resetWalletDisplay() {
   setMiningStatus('Connect your wallet to view mining status.');
 }
 
-// Get the currently active MetaMask account
+// Get the currently active wallet
 async function getWallet() {
   if (!walletProvider) {
     throw new Error('Please connect your wallet first.');
@@ -178,7 +179,6 @@ async function getWallet() {
     throw new Error('No active wallet account found.');
   }
 
-  // Synchronize the active account with AppKit
   if (
     !walletAddress ||
     walletAddress.toLowerCase() !== activeAddress.toLowerCase()
@@ -190,9 +190,7 @@ async function getWallet() {
     }
   }
 
-  // Create a fresh provider to avoid stale network information
   let provider = new BrowserProvider(walletProvider, 'any');
-
   let network = await provider.getNetwork();
 
   if (Number(network.chainId) !== CHAIN_ID) {
@@ -275,16 +273,17 @@ async function refreshDashboard() {
       eligibleAmount,
       purchaseTime,
       lastClaim,
-      reserve
+      reserve,
+      remainingRewards
     ] = await Promise.all([
       token.balanceOf(address),
       sale.firstPurchaseTokens(address),
       sale.firstPurchaseTime(address),
       mining.lastClaimTime(address),
-      mining.miningReserveBalance()
+      mining.miningReserveBalance(),
+      mining.remainingRewards()
     ]);
 
-    // Ignore results if the account changed during the read
     if (
       !walletAddress ||
       walletAddress.toLowerCase() !== address.toLowerCase()
@@ -302,8 +301,9 @@ async function refreshDashboard() {
         displayAmount(eligibleAmount) + ' TLX';
     }
 
+    // Daily mining reward: 1%
     const dailyReward =
-      Number(formatUnits(eligibleAmount, 18)) * 0.0025;
+      Number(formatUnits(eligibleAmount, 18)) * 0.01;
 
     if (rewardElement) {
       rewardElement.textContent =
@@ -323,14 +323,15 @@ async function refreshDashboard() {
         now >= previousTime + 86400 &&
         eligibleAmount > 0n &&
         reserve > 0n &&
+        remainingRewards > 0n &&
         !busy;
 
       claimButton.disabled = !ready || busy;
 
       if (eligibleAmount === 0n) {
         setMiningStatus('No eligible purchase found.');
-      } else if (reserve === 0n) {
-        setMiningStatus('Mining reserve is currently unavailable.');
+      } else if (reserve === 0n || remainingRewards === 0n) {
+        setMiningStatus('Mining rewards are currently unavailable.');
       } else if (ready) {
         setMiningStatus('Mining reward is ready to claim.');
       } else {
@@ -383,15 +384,6 @@ modal.subscribeAccount((account) => {
   }
 });
 
-// Receive wallet provider
-modal.subscribeProviders((providers) => {
-  walletProvider = providers?.eip155 || null;
-
-  if (walletProvider && walletAddress) {
-    refreshDashboard();
-  }
-});
-
 // Listen for direct MetaMask account changes
 function handleAccountsChanged(accounts) {
   const nextAddress = accounts?.[0];
@@ -421,13 +413,32 @@ function handleChainChanged() {
 
 // Attach provider event listeners
 function attachProviderListeners(provider) {
-  if (!provider || typeof provider.on !== 'function') {
+  if (
+    !provider ||
+    typeof provider.on !== 'function' ||
+    listeningProvider === provider
+  ) {
     return;
   }
+
+  listeningProvider = provider;
 
   provider.on('accountsChanged', handleAccountsChanged);
   provider.on('chainChanged', handleChainChanged);
 }
+
+// Receive wallet provider
+modal.subscribeProviders((providers) => {
+  walletProvider = providers?.eip155 || null;
+
+  if (walletProvider) {
+    attachProviderListeners(walletProvider);
+
+    if (walletAddress) {
+      refreshDashboard();
+    }
+  }
+});
 
 // Buy TLX
 buyButton?.addEventListener('click', async () => {
@@ -555,8 +566,3 @@ setInterval(() => {
     refreshDashboard();
   }
 }, 30000);
-
-// Attach listeners if provider is already available
-if (walletProvider) {
-  attachProviderListeners(walletProvider);
-}
