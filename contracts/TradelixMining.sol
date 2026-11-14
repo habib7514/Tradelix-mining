@@ -24,7 +24,7 @@ contract TradelixMining is Ownable, ReentrancyGuard {
 
     mapping(address => uint256) public lastClaimTime;
 
-    uint256 public constant DAILY_RATE = 25;
+    uint256 public constant DAILY_RATE = 100;
     uint256 public constant RATE_DENOMINATOR = 10000;
     uint256 public constant DAY = 1 days;
 
