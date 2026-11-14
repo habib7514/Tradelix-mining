@@ -27,7 +27,7 @@ jobs:
       - name: Compile contracts
         run: npx hardhat compile
 
-      - name: Estimate deployment only
+      - name: Deploy mining contract and fund reserve
         run: node scripts/deploy-mining-only.cjs
         env:
           PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
