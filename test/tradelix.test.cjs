@@ -98,8 +98,11 @@ describe("Tradelix AI - Smart Contract Tests", function () {
         await sale.connect(buyer).buy(parse("5"));
         await sale.connect(buyer).buy(parse("10"));
 
-        await ethers.provider.send("evm_increaseTime", [86400]);
-        await ethers.provider.send("evm_mine", []);
+        const purchaseTime = await sale.firstPurchaseTime(buyer.address);
+
+        await ethers.provider.send("evm_setNextBlockTimestamp", [
+            Number(purchaseTime) + 86400
+        ]);
 
         await mining.connect(buyer).claim();
 
