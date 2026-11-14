@@ -1,4 +1,6 @@
+
 const { ethers } = require("ethers");
+const artifact = require("../artifacts/contracts/TradelixMining.sol/TradelixMining.json");
 
 const RPC = "https://bsc-dataseed.binance.org/";
 const TREASURY = "0x4E11E978119cAAB300b5439B909D06341C24a2A7";
@@ -13,53 +15,88 @@ const TOKEN_ABI = [
 
 async function main() {
   if (!process.env.PRIVATE_KEY) {
-    throw new Error("PRIVATE_KEY secret is missing");
+    throw new Error("DEPLOYER_PRIVATE_KEY secret is missing");
   }
 
   const provider = new ethers.JsonRpcProvider(RPC);
   const network = await provider.getNetwork();
-
-  if (network.chainId !== 56n) {
-    throw new Error("Wrong network");
-  }
+  if (network.chainId !== 56n) throw new Error("Wrong network");
 
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-
   if (wallet.address.toLowerCase() !== TREASURY.toLowerCase()) {
-    throw new Error("Wrong treasury wallet");
+    throw new Error("Wallet does not match treasury");
   }
 
   const token = new ethers.Contract(TOKEN, TOKEN_ABI, wallet);
   const balance = await token.balanceOf(wallet.address);
+  if (balance < ALLOCATION) throw new Error("Insufficient TLX balance");
 
-  if (balance < ALLOCATION) {
-    throw new Error("Insufficient TLX balance");
-  }
-
-  const artifact = require("../artifacts/contracts/TradelixMining.sol/TradelixMining.json");
   const factory = new ethers.ContractFactory(
-    artifact.abi,
-    artifact.bytecode,
-    wallet
+    artifact.abi, artifact.bytecode, wallet
   );
 
-  const request = await factory.getDeployTransaction();
-  const gas = await provider.estimateGas({
-    ...request,
-    from: wallet.address
+  const deployTx = await factory.getDeployTransaction();
+  const deployGas = await provider.estimateGas({
+    ...deployTx, from: wallet.address
   });
 
   const fees = await provider.getFeeData();
-  const gasPrice = fees.maxFeePerGas ?? fees.gasPrice;
+  const gasPrice = fees.gasPrice;
+  if (!gasPrice) throw new Error("Cannot read BNB gas price");
 
-  if (!gasPrice) throw new Error("Cannot read gas price");
+  const predictedAddress = ethers.getCreateAddress({
+    from: wallet.address,
+    nonce: await wallet.getNonce("pending")
+  });
 
-  console.log("Deployment gas:", gas.toString());
-  console.log("Estimated BNB:", ethers.formatEther(gas * gasPrice));
-  console.log("No transaction sent yet.");
+  const miningInterface = new ethers.Interface(artifact.abi);
+  const setTokenData = miningInterface.encodeFunctionData("setToken", [TOKEN]);
+  const setSaleData = miningInterface.encodeFunctionData("setSale", [SALE]);
+
+  const setTokenGas = await provider.estimateGas({
+    from: wallet.address, to: predictedAddress, data: setTokenData
+  }).catch(() => 0n);
+
+  const setSaleGas = await provider.estimateGas({
+    from: wallet.address, to: predictedAddress, data: setSaleData
+  }).catch(() => 0n);
+
+  const transferData = new ethers.Interface(TOKEN_ABI)
+    .encodeFunctionData("transfer", [predictedAddress, ALLOCATION]);
+
+  const transferGas = await provider.estimateGas({
+    from: wallet.address, to: TOKEN, data: transferData
+  });
+
+  const totalGas = deployGas + setTokenGas + setSaleGas + transferGas;
+  const estimatedCost = totalGas * gasPrice;
+  const withBuffer = estimatedCost * 120n / 100n;
+
+  console.log("Wallet:", wallet.address);
+  console.log("TLX balance:", ethers.formatUnits(balance, 18));
+  console.log("Predicted mining address:", predictedAddress);
+  console.log("Deployment gas:", deployGas.toString());
+  console.log("setToken gas:", setTokenGas.toString());
+  console.log("setSale gas:", setSaleGas.toString());
+  console.log("TLX transfer gas:", transferGas.toString());
+  console.log("Estimated total BNB:", ethers.formatEther(estimatedCost));
+  console.log("With 20% buffer:", ethers.formatEther(withBuffer));
+  console.log("Available BNB:", ethers.formatEther(
+    await provider.getBalance(wallet.address)
+  ));
+
+  if (setTokenGas === 0n || setSaleGas === 0n) {
+    throw new Error("Cannot safely estimate setup transactions. No transactions sent.");
+  }
+
+  const available = await provider.getBalance(wallet.address);
+  if (available < withBuffer) {
+    throw new Error("Insufficient BNB for estimated total cost. No transactions sent.");
+  }
 
   if (process.env.CONFIRM_MAINNET_DEPLOY !== "YES") {
-    throw new Error("Deployment not authorized");
+    console.log("ESTIMATE ONLY. No transactions sent.");
+    return;
   }
 
   const mining = await factory.deploy();
